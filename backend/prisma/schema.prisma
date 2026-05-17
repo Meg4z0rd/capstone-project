@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        Int       @id @default(autoincrement())
+  name      String    @db.VarChar(100)
+  email     String    @unique @db.VarChar(150)
+  password  String?   @db.VarChar(255)
+  googleId  String?   @unique @map("google_id") @db.VarChar(255)
+  avatar    String?
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  analyses  AnalysisHistory[]
+  resetTokens PasswordResetToken[]
+
+  @@map("users")
+}
+
+model AnalysisHistory {
+  id              Int      @id @default(autoincrement())
+  userId          Int      @map("user_id")
+  imagePath       String?  @map("image_path") @db.VarChar(255)
+  skinType        String?  @map("skin_type") @db.VarChar(50)
+  concerns        String[]
+  additionalNotes String?  @map("additional_notes")
+  result          Json
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("analysis_history")
+}
+
+model PasswordResetToken {
+  token     String   @id @db.VarChar(64)
+  userId    Int      @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
