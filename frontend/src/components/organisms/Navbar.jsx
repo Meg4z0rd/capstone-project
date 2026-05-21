@@ -44,14 +44,14 @@ const Navbar = () => {
         </ul>
 
         <div className="flex items-center gap-2">
-          {!isChat && (
+          {isLoggedIn && !isChat && (
             <Link to="/chat">
               <Button size="sm" variant="ghost">
                 <span className="flex items-center gap-1.5"><MessageCircle size={14} />Konsultasi</span>
               </Button>
             </Link>
           )}
-          {!isAnalysis && (
+          {isLoggedIn && !isAnalysis && (
             <Link to="/analysis">
               <Button size="sm" variant="outline">
                 <span className="flex items-center gap-1.5"><ScanFace size={14} />Analisis Foto</span>
