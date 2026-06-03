@@ -1,19 +1,27 @@
 import axios from "axios";
 
-const BASE_URL = "http://localhost:5000";
+const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+const api = axios.create({
+  baseURL: BASE_URL,
+  headers: {
+    "Content-Type": "application/json",
+    "ngrok-skip-browser-warning": "true",
+  },
+});
 
 export const predictSkin = async (data) => {
-  const res = await axios.post(`${BASE_URL}/predict`, data);
+  const res = await api.post("/predict", data);
   return res.data;
 };
 
 export const loginUser = async (email, password) => {
-  const res = await axios.post(`${BASE_URL}/auth/login`, { email, password });
+  const res = await api.post("/auth/login", { email, password });
   return res.data;
 };
 
 export const registerUser = async (name, email, password) => {
-  const res = await axios.post(`${BASE_URL}/auth/register`, {
+  const res = await api.post("/auth/register", {
     name,
     email,
     password,
@@ -22,26 +30,21 @@ export const registerUser = async (name, email, password) => {
 };
 
 export const forgotPassword = async (email) => {
-  const res = await axios.post(`${BASE_URL}/auth/forgot-password`, { email });
+  const res = await api.post("/auth/forgot-password", { email });
   return res.data;
 };
 
-/**
- * Analisis kulit dari foto + detail
- * POST /analyze
- * Body: { image (base64), skinType, concerns[], additionalNotes }
- * Returns: { result: { summary, conditions[], recommendations[] } }
- */
 export const analyzeSkin = async (payload, token) => {
-  const res = await axios.post(`${BASE_URL}/analyze`, payload, {
+  const res = await api.post("/analyze", payload, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
   });
   return res.data;
 };
+
 export const getAnalysisStatus = async (jobId, token) => {
-  const res = await axios.get(`${BASE_URL}/analyze/status/${jobId}`, {
+  const res = await api.get(`/analyze/status/${jobId}`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -49,16 +52,9 @@ export const getAnalysisStatus = async (jobId, token) => {
   return res.data;
 };
 
-
-/**
- * Chat konsultasi kulit dengan AI
- * POST /chat (wajib login)
- * Body: { messages }
- * Returns: { reply: string }
- */
 export const chatWithAI = async (messages, token) => {
-  const res = await axios.post(
-    `${BASE_URL}/chat`,
+  const res = await api.post(
+    "/chat",
     { messages },
     {
       headers: {
@@ -69,24 +65,16 @@ export const chatWithAI = async (messages, token) => {
   return res.data.data.reply;
 };
 
-/**
- * Cek sisa kuota analisis harian
- * GET /analyze/quota
- */
 export const getAnalysisQuota = async (token) => {
-  const res = await axios.get(`${BASE_URL}/analyze/quota`, {
+  const res = await api.get("/analyze/quota", {
     headers: { Authorization: `Bearer ${token}` },
   });
-  return res.data.data; // { used, limit, remaining }
+  return res.data.data;
 };
 
-/**
- * Cek sisa kuota chat harian
- * GET /chat/quota
- */
 export const getChatQuota = async (token) => {
-  const res = await axios.get(`${BASE_URL}/chat/quota`, {
+  const res = await api.get("/chat/quota", {
     headers: { Authorization: `Bearer ${token}` },
   });
-  return res.data.data; // { used, limit, remaining }
+  return res.data.data;
 };
