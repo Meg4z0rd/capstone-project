@@ -4,7 +4,8 @@ const fs = require("fs");
 require("dotenv").config();
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || "uploads";
-const MAX_SIZE_MB = parseInt(process.env.MAX_FILE_SIZE_MB || "10");
+const MAX_SIZE_MB = parseInt(process.env.MAX_FILE_SIZE_MB || "5");
+const MIN_SIZE_KB = parseInt(process.env.MIN_FILE_SIZE_KB || "200");
 
 // Pastikan folder uploads ada
 if (!fs.existsSync(UPLOAD_DIR)) {
@@ -26,7 +27,10 @@ const fileFilter = (req, file, cb) => {
   if (allowed.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error("Format gambar tidak didukung. Gunakan JPG, PNG, atau WebP."), false);
+    cb(
+      new Error("Format gambar tidak didukung. Gunakan JPG, PNG, atau WebP."),
+      false,
+    );
   }
 };
 

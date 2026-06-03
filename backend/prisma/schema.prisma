@@ -4,6 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -18,6 +19,8 @@ model User {
 
   analyses  AnalysisHistory[]
   resetTokens PasswordResetToken[]
+  aiLogs    AiLog[]
+  usageQuotas UsageQuota[]
 
   @@map("users")
 }
@@ -48,4 +51,35 @@ model PasswordResetToken {
 
   @@index([userId])
   @@map("password_reset_tokens")
+}
+
+model AiLog {
+  id           Int      @id @default(autoincrement())
+  userId       Int?     @map("user_id")
+  status       String   @db.VarChar(20) // "SUCCESS" atau "FAILED"
+  endpoint     String   @db.VarChar(100) // "/analyze" atau "/api/predict-skin"
+  prediction   String?  @db.VarChar(50)  // Cyst, Papules, Pustules
+  confidence   Float?   // Tingkat confidence model
+  errorMessage String?  @map("error_message") // Detail error jika FAILED
+  latencyMs    Int?     @map("latency_ms")    // Durasi pengerjaan ML server (ms)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("ai_logs")
+}
+
+model UsageQuota {
+  id             Int      @id @default(autoincrement())
+  userId         Int      @map("user_id")
+  feature        String   @db.VarChar(20) // "analysis" atau "chat"
+  usageCount     Int      @default(0) @map("usage_count")
+  quotaDate      DateTime @map("quota_date")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, feature, quotaDate])
+  @@map("usage_quotas")
 }

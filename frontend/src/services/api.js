@@ -32,10 +32,23 @@ export const forgotPassword = async (email) => {
  * Body: { image (base64), skinType, concerns[], additionalNotes }
  * Returns: { result: { summary, conditions[], recommendations[] } }
  */
-export const analyzeSkin = async (payload) => {
-  const res = await axios.post(`${BASE_URL}/analyze`, payload);
+export const analyzeSkin = async (payload, token) => {
+  const res = await axios.post(`${BASE_URL}/analyze`, payload, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
   return res.data;
 };
+export const getAnalysisStatus = async (jobId, token) => {
+  const res = await axios.get(`${BASE_URL}/analyze/status/${jobId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return res.data;
+};
+
 
 /**
  * Chat konsultasi kulit dengan AI
@@ -54,4 +67,26 @@ export const chatWithAI = async (messages, token) => {
     },
   );
   return res.data.data.reply;
+};
+
+/**
+ * Cek sisa kuota analisis harian
+ * GET /analyze/quota
+ */
+export const getAnalysisQuota = async (token) => {
+  const res = await axios.get(`${BASE_URL}/analyze/quota`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res.data.data; // { used, limit, remaining }
+};
+
+/**
+ * Cek sisa kuota chat harian
+ * GET /chat/quota
+ */
+export const getChatQuota = async (token) => {
+  const res = await axios.get(`${BASE_URL}/chat/quota`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res.data.data; // { used, limit, remaining }
 };

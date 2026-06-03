@@ -6,15 +6,13 @@ import {
   Sparkles,
   User,
   RotateCcw,
-  ImagePlus,
-  X,
   Loader2,
   ChevronDown,
   AlertCircle,
 } from "lucide-react";
 import Navbar from "../components/organisms/Navbar";
 import { useAuth } from "../context/AuthContext";
-import { chatWithAI } from "../services/api";
+import { chatWithAI, getChatQuota } from "../services/api";
 
 // starter
 const STARTERS = [
@@ -191,13 +189,19 @@ const ChatPage = () => {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [imagePreview, setImagePreview] = useState(null); // { file, base64, preview }
   const [showScrollBtn, setShowScrollBtn] = useState(false);
+  const [quota, setQuota] = useState(null); // { used, limit, remaining }
 
   const bottomRef = useRef(null);
-  const fileRef = useRef(null);
   const textareaRef = useRef(null);
   const scrollRef = useRef(null);
+
+  /* ── Ambil info kuota saat halaman dimuat ── */
+  useEffect(() => {
+    if (token) {
+      getChatQuota(token).then(setQuota).catch(() => {});
+    }
+  }, [token]);
 
   /* ── Auto-scroll ── */
   const scrollToBottom = useCallback(() => {
@@ -222,57 +226,20 @@ const ChatPage = () => {
     ta.style.height = Math.min(ta.scrollHeight, 140) + "px";
   }, [input]);
 
-  /* ── Upload foto ── */
-  const handleImageFile = async (file) => {
-    if (!file || !["image/jpeg", "image/png", "image/webp"].includes(file.type))
-      return;
-    if (file.size > 10 * 1024 * 1024) {
-      setError("Ukuran foto maks. 10MB");
-      return;
-    }
-    const base64 = await new Promise((res) => {
-      const r = new FileReader();
-      r.onload = () => res(r.result);
-      r.readAsDataURL(file);
-    });
-    setImagePreview({ file, base64, preview: URL.createObjectURL(file) });
-  };
-
-  const handleImageDrop = (e) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files?.[0];
-    if (file) handleImageFile(file);
-  };
-
   /* ── Kirim pesan ── */
   const sendMessage = async (textOverride) => {
     const text = (textOverride ?? input).trim();
-    if (!text && !imagePreview) return;
+    if (!text) return;
 
     setError("");
-    const userContent = imagePreview
-      ? [
-          {
-            type: "image",
-            source: {
-              type: "base64",
-              media_type: imagePreview.file.type,
-              data: imagePreview.base64,
-            },
-          },
-          { type: "text", text: text || "Tolong analisis foto kulit ini." },
-        ]
-      : text;
-
     const userMsg = {
       role: "user",
-      content: userContent,
+      content: text,
       timestamp: Date.now(),
     };
     const history = [...messages, userMsg];
     setMessages(history);
     setInput("");
-    setImagePreview(null);
     setLoading(true);
 
     // Build API messages — strip timestamps
@@ -284,8 +251,19 @@ const ChatPage = () => {
         ...history,
         { role: "assistant", content: reply, timestamp: Date.now() },
       ]);
+      // Update kuota lokal
+      setQuota((prev) => prev ? { ...prev, used: prev.used + 1, remaining: Math.max(0, prev.remaining - 1) } : prev);
     } catch (err) {
-      setError("Gagal mendapatkan respons. Periksa koneksi atau coba lagi.");
+      // Tangkap error kuota habis (HTTP 429)
+      if (err?.response?.status === 429) {
+        const quotaData = err.response.data?.quota;
+        if (quotaData) setQuota(quotaData);
+        setError(err.response.data?.message || "Kuota chat harian kamu sudah habis.");
+        // Hapus pesan user terakhir yang gagal dikirim
+        setMessages(messages);
+      } else {
+        setError("Gagal mendapatkan respons. Periksa koneksi atau coba lagi.");
+      }
     } finally {
       setLoading(false);
     }
@@ -301,7 +279,6 @@ const ChatPage = () => {
   const clearChat = () => {
     setMessages([]);
     setInput("");
-    setImagePreview(null);
     setError("");
   };
 
@@ -387,8 +364,6 @@ const ChatPage = () => {
         ref={scrollRef}
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto relative"
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={handleImageDrop}
       >
         <div className="max-w-3xl mx-auto px-6 py-6 flex flex-col gap-5 min-h-full">
           {isEmptyChat ? (
@@ -404,8 +379,7 @@ const ChatPage = () => {
                   </h2>
                   <p className="text-sm text-neutral-400 mt-1 max-w-xs">
                     Tanya apapun soal kulit kamu — dari jerawat, skincare,
-                    hingga bahan aktif. Bisa juga kirim foto untuk analisis
-                    langsung.
+                    hingga bahan aktif.
                   </p>
                 </div>
               </div>
@@ -423,10 +397,6 @@ const ChatPage = () => {
                   </button>
                 ))}
               </div>
-
-              <p className="text-xs text-neutral-400 max-w-xs">
-                Kamu juga bisa drag & drop foto kulit langsung ke area chat ini
-              </p>
             </div>
           ) : (
             /* ── Pesan ── */
@@ -463,50 +433,8 @@ const ChatPage = () => {
             </div>
           )}
 
-          {/* Preview foto terlampir */}
-          {imagePreview && (
-            <div className="flex items-center gap-3 bg-primary-light border border-primary/20 rounded-xl px-3 py-2">
-              <img
-                src={imagePreview.preview}
-                alt="Preview"
-                className="w-10 h-10 rounded-lg object-cover border border-primary/20"
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-primary-dark truncate">
-                  {imagePreview.file.name}
-                </p>
-                <p className="text-xs text-neutral-400">
-                  {(imagePreview.file.size / 1024).toFixed(0)} KB · Foto akan
-                  dikirim bersama pesan
-                </p>
-              </div>
-              <button
-                onClick={() => setImagePreview(null)}
-                className="text-neutral-400 hover:text-red-500 transition-colors"
-              >
-                <X size={15} />
-              </button>
-            </div>
-          )}
-
           {/* Input row */}
           <div className="flex items-end gap-2">
-            {/* Tombol upload foto */}
-            <button
-              onClick={() => fileRef.current?.click()}
-              title="Lampirkan foto kulit"
-              className="w-10 h-10 flex-shrink-0 rounded-xl border border-neutral-200 flex items-center justify-center text-neutral-400 hover:border-primary hover:text-primary hover:bg-primary-light transition-all duration-150 cursor-pointer"
-            >
-              <ImagePlus size={17} />
-            </button>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden"
-              onChange={(e) => handleImageFile(e.target.files?.[0])}
-            />
-
             {/* Textarea */}
             <div className="flex-1 relative">
               <textarea
@@ -517,7 +445,7 @@ const ChatPage = () => {
                 placeholder="Tanya soal kulitmu... (Enter untuk kirim, Shift+Enter baris baru)"
                 rows={1}
                 disabled={loading}
-                className="w-full px-4 py-2.5 pr-12 rounded-xl border border-neutral-200 text-sm text-neutral-900 placeholder-neutral-400 bg-neutral-50 resize-none outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200 disabled:opacity-60"
+                className="w-full px-4 py-2.5 rounded-xl border border-neutral-200 text-sm text-neutral-900 placeholder-neutral-400 bg-neutral-50 resize-none outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200 disabled:opacity-60"
                 style={{ minHeight: "42px", maxHeight: "140px" }}
               />
             </div>
@@ -525,7 +453,7 @@ const ChatPage = () => {
             {/* Tombol kirim */}
             <button
               onClick={() => sendMessage()}
-              disabled={loading || (!input.trim() && !imagePreview)}
+              disabled={loading || !input.trim()}
               className="w-10 h-10 flex-shrink-0 rounded-xl bg-primary text-white flex items-center justify-center hover:bg-primary-dark transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
             >
               {loading ? (
@@ -537,6 +465,12 @@ const ChatPage = () => {
           </div>
 
           <p className="text-xs text-neutral-400 text-center">
+            {quota ? (
+              <>
+                Sisa kuota hari ini: <span className={`font-semibold ${quota.remaining <= 2 ? 'text-red-500' : 'text-primary'}`}>{quota.remaining}/{quota.limit}</span>
+                {' · '}
+              </>
+            ) : null}
             Respons AI bersifat informatif, bukan pengganti diagnosis dokter
             kulit.
           </p>

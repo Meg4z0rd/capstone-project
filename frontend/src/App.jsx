@@ -9,12 +9,16 @@ import AnalysisPage from './pages/AnalysisPage';
 import ChatPage from './pages/ChatPage';
 import GoogleCallbackPage from './pages/GoogleCallbackPage';
 import ProfilePage from './pages/ProfilePage';
+import HowItWorksPage from './pages/HowItWorksPage';
 
 const App = () => {
   return (
     <AuthProvider>
       <Routes>
         <Route path="/" element={<LandingPage />} />
+
+        <Route path="/cara-kerja" element={<HowItWorksPage />} />
+
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
